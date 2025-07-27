@@ -22,6 +22,8 @@ class TodoInterface(QWidget):
         super().__init__(parent)
         self.todo_file = "todos.json"
         self.todos = []  # Will store hierarchical todo structure
+        # Store references to custom widgets for tree items
+        self.item_widgets = {}  # item_id -> {'checkbox': CheckBox, 'text_label': BodyLabel}
         self.init_ui()
         self.load_todos()
 
@@ -89,11 +91,18 @@ class TodoInterface(QWidget):
         
         input_form.addRow("Due Date:", due_date_layout)
         
-        # Add button
+        # Add button and Clear button in the same row
         button_layout = QHBoxLayout()
         self.add_button = PrimaryPushButton("Add Todo")
         self.add_button.clicked.connect(self.add_todo)
         button_layout.addWidget(self.add_button)
+        
+        # Add Clear Completed button next to Add Todo
+        self.clear_button = PushButton("Clear Completed")
+        self.clear_button.clicked.connect(self.clear_completed)
+        button_layout.addWidget(self.clear_button)
+        
+        # button_layout.addStretch()  # Push buttons to the left
         input_form.addRow(button_layout)
         
         self.main_layout.addWidget(input_group)
@@ -134,15 +143,6 @@ class TodoInterface(QWidget):
         self.todo_tree.itemChanged.connect(self.update_todo_status)
         self.main_layout.addWidget(self.todo_tree)
         
-        # Global action buttons
-        button_layout = QHBoxLayout()
-        
-        self.clear_button = PushButton("Clear Completed")
-        self.clear_button.clicked.connect(self.clear_completed)
-        button_layout.addWidget(self.clear_button)
-        
-        button_layout.addStretch()  # Push button to the left
-        self.main_layout.addLayout(button_layout)
         
         # Status bar
         self.status_label = BodyLabel("Total: 0 | Completed: 0")
@@ -346,8 +346,9 @@ class TodoInterface(QWidget):
             child_item = tree_item.child(i)
             
             # Update fluent checkbox if it exists
-            if hasattr(child_item, 'fluent_checkbox') and child_item.fluent_checkbox:
-                child_item.fluent_checkbox.setChecked(completed_status)
+            child_item_id = id(child_item)
+            if child_item_id in self.item_widgets and self.item_widgets[child_item_id]['checkbox']:
+                self.item_widgets[child_item_id]['checkbox'].setChecked(completed_status)
             else:
                 # Fallback to traditional checkbox
                 check_state = Qt.CheckState.Checked if completed_status else Qt.CheckState.Unchecked
@@ -460,6 +461,10 @@ class TodoInterface(QWidget):
         except TypeError:
             # Signal was not connected, ignore the error
             pass
+        
+        # Clear widget references to avoid memory leaks
+        self.item_widgets.clear()
+        
         self.todo_tree.clear()
         self.populate_tree_items(self.todos, None)
         self.todo_tree.expandAll()
@@ -514,9 +519,12 @@ class TodoInterface(QWidget):
             checkbox_layout.addWidget(text_label)
             checkbox_layout.addStretch()
             
-            # Store references for later access
-            item.fluent_checkbox = fluent_checkbox
-            item.text_label = text_label
+            # Store references for later access using item's memory address as key
+            item_id = id(item)
+            self.item_widgets[item_id] = {
+                'checkbox': fluent_checkbox,
+                'text_label': text_label
+            }
             
             # Clear the item text since we're using custom widget
             item.setText(0, "")
@@ -590,20 +598,22 @@ class TodoInterface(QWidget):
     def apply_completed_style(self, item, is_completed):
         """Apply or remove strikethrough style for completed items"""
         # Style the custom text label in the checkbox widget
-        if hasattr(item, 'text_label') and item.text_label:
-            font = item.text_label.font()
+        item_id = id(item)
+        if item_id in self.item_widgets and self.item_widgets[item_id]['text_label']:
+            text_label = self.item_widgets[item_id]['text_label']
+            font = text_label.font()
             if is_completed:
                 # Add strikethrough for completed items
                 font.setStrikeOut(True)
-                item.text_label.setFont(font)
+                text_label.setFont(font)
                 # Make text slightly grayed out
-                item.text_label.setStyleSheet("color: gray;")
+                text_label.setStyleSheet("color: gray;")
             else:
                 # Remove strikethrough for uncompleted items
                 font.setStrikeOut(False)
-                item.text_label.setFont(font)
+                text_label.setFont(font)
                 # Restore normal text color
-                item.text_label.setStyleSheet("")
+                text_label.setStyleSheet("")
         
         # Style other columns (Priority, Due Date, Created)
         for col in range(1, 4):  # Style columns 1-3 (Priority, Due Date, Created)

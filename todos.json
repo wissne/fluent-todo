@@ -1,7 +1,7 @@
 [
   {
     "text": "Hello",
-    "completed": false,
+    "completed": true,
     "priority": "Medium",
     "due_date": "2025-08-03",
     "create_date": "2025-07-27 21:39:33",
@@ -10,7 +10,7 @@
         "text": "AI",
         "priority": "Medium",
         "due_date": "2025-07-27",
-        "completed": false,
+        "completed": true,
         "create_date": "2025-07-27 21:39:52",
         "children": []
       }

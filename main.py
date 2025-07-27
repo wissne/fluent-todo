@@ -4,7 +4,7 @@ import os
 from datetime import datetime
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
-    QFileDialog, QTreeWidgetItem,
+    QTreeWidgetItem,
     QFormLayout, QGroupBox, QDialog, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt, QDate
@@ -122,7 +122,7 @@ class TodoInterface(QWidget):
         self.sort_order_combo.currentTextChanged.connect(self.sort_todos)
         sort_layout.addWidget(self.sort_order_combo)
         
-        sort_layout.addStretch()
+        # sort_layout.addStretch()
         self.main_layout.addWidget(sort_group)
         
         # Todo tree (for nested items)
@@ -505,8 +505,7 @@ class TodoInterface(QWidget):
             
             # Simple left margin to avoid overlap with expand icon
             # The tree indentation will handle the hierarchical spacing
-            checkbox_layout.setContentsMargins(10, 0, 5, 0)
-            checkbox_layout.setSpacing(3)  # Reduced spacing between checkbox and text
+            checkbox_layout.setContentsMargins(20, 0, 0, 0)
             
             fluent_checkbox = CheckBox()
             fluent_checkbox.setChecked(todo["completed"])
@@ -741,33 +740,6 @@ class TodoInterface(QWidget):
             if todo["children"]:
                 todo["children"] = self.ensure_children_field(todo["children"])
         return todos
-
-    def load_todos_dialog(self):
-        file_path, _ = QFileDialog.getOpenFileName(
-            self.window(), 
-            "Load Todos", 
-            "", 
-            "JSON Files (*.json)"
-        )
-        if file_path:
-            try:
-                with open(file_path, 'r', encoding='utf-8') as f:
-                    loaded_todos = json.load(f)
-                # Ensure backward compatibility - add children field if missing
-                self.todos = self.ensure_children_field(loaded_todos)
-                self.update_todo_tree()
-                self.update_status()
-                InfoBar.success(
-                    title='Success',
-                    content=f'Loaded todos from {os.path.basename(file_path)}',
-                    orient=Qt.Orientation.Horizontal,
-                    isClosable=True,
-                    position=InfoBarPosition.TOP_RIGHT,
-                    duration=2000,
-                    parent=self.window()
-                )
-            except Exception as e:
-                MessageBox("Error", f"Failed to load todos: {str(e)}", self.window()).exec()
 
 
 class TodoEditDialog(QDialog):

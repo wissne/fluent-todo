@@ -845,14 +845,33 @@ class TodoApp(FluentWindow):
         super().__init__()
         self.todo_interface = TodoInterface()
         self.init_ui()
-        self.resize(900, 600)
-        self.setWindowTitle("Fluent Todo List")
+        self.setup_window()
 
     def init_ui(self):
         # Set object name before adding the interface
         self.todo_interface.setObjectName("todoInterface")
         # Add the todo interface to the FluentWindow
         self.addSubInterface(self.todo_interface, Icon(FluentIcon.HOME), "Todo List", NavigationItemPosition.TOP)
+
+    def setup_window(self):
+        """Setup window properties - center and maximize"""
+        self.setWindowTitle("Fluent Todo List")
+        
+        # Set initial size
+        self.resize(1200, 800)
+        
+        # Center the window on screen
+        from PyQt6.QtWidgets import QApplication
+        screen = QApplication.primaryScreen()
+        if screen:
+            screen_geometry = screen.availableGeometry()
+            window_geometry = self.frameGeometry()
+            center_point = screen_geometry.center()
+            window_geometry.moveCenter(center_point)
+            self.move(window_geometry.topLeft())
+        
+        # Maximize the window
+        self.showMaximized()
 
 
 def main():

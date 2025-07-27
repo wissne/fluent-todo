@@ -76,7 +76,7 @@ class TodoInterface(QWidget):
         # Add quick date buttons
         today_btn = PushButton("TDY")
         today_btn.clicked.connect(lambda: self.due_date_edit.setDate(QDate.currentDate()))
-        today_btn.setMaximumWidth(60)
+        today_btn.setMaximumWidth(80)
         due_date_layout.addWidget(today_btn)
         
         tomorrow_btn = PushButton("TOM")
@@ -109,26 +109,31 @@ class TodoInterface(QWidget):
         
         # Sorting controls
         sort_group = QGroupBox("Sort Options")
-        sort_layout = QHBoxLayout(sort_group)
-        
-        sort_layout.addWidget(BodyLabel("Sort by:"))
+        sort_layout = QFormLayout(sort_group)
+
         self.sort_combo = ComboBox()
         self.sort_combo.addItems(["Create Date", "Priority", "Due Date", "Name"])
         self.sort_combo.currentTextChanged.connect(self.sort_todos)
-        sort_layout.addWidget(self.sort_combo)
-        
+
         self.sort_order_combo = ComboBox()
         self.sort_order_combo.addItems(["Ascending", "Descending"])
         self.sort_order_combo.currentTextChanged.connect(self.sort_todos)
-        sort_layout.addWidget(self.sort_order_combo)
-        
+
+        sort_row_layout = QHBoxLayout()
+        sort_row_layout.addWidget(self.sort_combo)
+        sort_row_layout.addWidget(self.sort_order_combo)
+        # sort_order_combo 宽度小些
+        self.sort_order_combo.setMaximumWidth(120)
+        sort_layout.addRow("Sort by:", sort_row_layout)
+        # sort_layout.addStretch()
+
         # sort_layout.addStretch()
         self.main_layout.addWidget(sort_group)
         
         # Todo tree (for nested items)
         self.todo_tree = TreeWidget()
         self.todo_tree.setHeaderLabels(["Task", "Priority", "Due Date", "Created", "Actions"])
-        self.todo_tree.setColumnWidth(0, 400)  # Increased width for checkbox and text
+        self.todo_tree.setColumnWidth(0, 800)  # Increased width for checkbox and text
         self.todo_tree.setColumnWidth(1, 80)
         self.todo_tree.setColumnWidth(2, 100)
         self.todo_tree.setColumnWidth(3, 100)
@@ -753,7 +758,7 @@ class TodoEditDialog(QDialog):
     def init_ui(self):
         self.setWindowTitle("Edit Todo Item")
         self.setModal(True)
-        self.resize(400, 300)
+        self.resize(600, 300)
         
         layout = QVBoxLayout(self)
         
@@ -783,21 +788,21 @@ class TodoEditDialog(QDialog):
         # today_btn.setIcon(Icon(FluentIcon.CALENDAR))
         today_btn.setToolTip("Today")
         today_btn.clicked.connect(lambda: self.due_date_edit.setDate(QDate.currentDate()))
-        today_btn.setMaximumWidth(40)
+        today_btn.setMaximumWidth(80)
         due_date_layout.addWidget(today_btn)
         
         tomorrow_btn = PushButton("TOM")
         # tomorrow_btn.setIcon(Icon(FluentIcon.TRAIN))
         tomorrow_btn.setToolTip("Tomorrow")
         tomorrow_btn.clicked.connect(lambda: self.due_date_edit.setDate(QDate.currentDate().addDays(1)))
-        tomorrow_btn.setMaximumWidth(40)
+        tomorrow_btn.setMaximumWidth(80)
         due_date_layout.addWidget(tomorrow_btn)
         
         week_btn = PushButton("WEEK")
         # week_btn.setIcon(Icon(FluentIcon.DATE_TIME))
         week_btn.setToolTip("Next Week")
         week_btn.clicked.connect(lambda: self.due_date_edit.setDate(QDate.currentDate().addDays(7)))
-        week_btn.setMaximumWidth(40)
+        week_btn.setMaximumWidth(80)
         due_date_layout.addWidget(week_btn)
         
         form_layout.addRow("Due Date:", due_date_layout)

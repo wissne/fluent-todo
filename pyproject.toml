@@ -1,0 +1,10 @@
+[project]
+name = "demo"
+version = "0.1.0"
+description = "A PyQt6-based Todo List Application with Fluent Design"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "PyQt6>=6.4.0",
+    "PyQt6-Fluent-Widgets>=1.0.0",
+]

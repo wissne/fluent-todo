@@ -1,0 +1,50 @@
+[
+  {
+    "text": "Project Planning",
+    "completed": false,
+    "children": [
+      {
+        "text": "Research requirements",
+        "completed": true,
+        "children": []
+      },
+      {
+        "text": "Create timeline",
+        "completed": false,
+        "children": [
+          {
+            "text": "Define milestones",
+            "completed": false,
+            "children": []
+          },
+          {
+            "text": "Set deadlines",
+            "completed": false,
+            "children": []
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "text": "Development Tasks",
+    "completed": false,
+    "children": [
+      {
+        "text": "Setup environment",
+        "completed": true,
+        "children": []
+      },
+      {
+        "text": "Implement features",
+        "completed": false,
+        "children": []
+      }
+    ]
+  },
+  {
+    "text": "Simple task without sub-items",
+    "completed": false,
+    "children": []
+  }
+]

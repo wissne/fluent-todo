@@ -1263,6 +1263,8 @@ class JiraInterface(QWidget):
         if w.exec():
             # 从树形控件中移除
             root = self.stories_tree.invisibleRootItem()
+            if root is None:
+                return
             root.removeChild(self.current_selected_item)
             
             # 清空编辑表单
@@ -1344,9 +1346,10 @@ class JiraInterface(QWidget):
         stories = []
         for i in range(self.stories_tree.topLevelItemCount()):
             item = self.stories_tree.topLevelItem(i)
-            story_data = item.data(0, Qt.ItemDataRole.UserRole)
-            if story_data:
-                stories.append(story_data)
+            if item:
+                story_data = item.data(0, Qt.ItemDataRole.UserRole)
+                if story_data:
+                    stories.append(story_data)
         
         if not stories:
             InfoBar.warning(

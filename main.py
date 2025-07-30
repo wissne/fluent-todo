@@ -845,18 +845,601 @@ class TodoEditDialog(QDialog):
         }
 
 
+class JiraInterface(QWidget):
+    """Jira User Story生成器界面"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.init_ui()
+
+    def init_ui(self):
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 20, 20, 20)
+        
+        # 标题
+        title_label = BodyLabel("Jira User Story Generator")
+        title_label.setStyleSheet("font-size: 24px; font-weight: bold; margin-bottom: 20px;")
+        self.main_layout.addWidget(title_label)
+        
+        # 输入区域
+        input_group = QGroupBox("Generate User Stories")
+        input_layout = QFormLayout(input_group)
+        
+        # 用户输入框
+        self.user_input = LineEdit()
+        self.user_input.setPlaceholderText("Enter your requirement or feature description...")
+        self.user_input.returnPressed.connect(self.generate_user_stories)
+        input_layout.addRow("Requirement:", self.user_input)
+        
+        # 生成和创建按钮行
+        buttons_layout = QHBoxLayout()
+        
+        self.generate_button = PrimaryPushButton("Generate User Stories")
+        self.generate_button.setIcon(Icon(FluentIcon.ROBOT))
+        self.generate_button.clicked.connect(self.generate_user_stories)
+        buttons_layout.addWidget(self.generate_button)
+        
+        self.create_all_button = PrimaryPushButton("Create All in Jira")
+        self.create_all_button.setIcon(Icon(FluentIcon.ADD))
+        self.create_all_button.clicked.connect(self.create_all_stories_in_jira)
+        self.create_all_button.setEnabled(False)
+        buttons_layout.addWidget(self.create_all_button)
+        
+        self.create_selected_button = PushButton("Create Selected")
+        self.create_selected_button.setIcon(Icon(FluentIcon.ADD))
+        self.create_selected_button.clicked.connect(self.create_selected_story_in_jira)
+        self.create_selected_button.setEnabled(False)
+        buttons_layout.addWidget(self.create_selected_button)
+        
+        input_layout.addRow(buttons_layout)
+        
+        self.main_layout.addWidget(input_group)
+        
+        # 结果显示区域
+        results_group = QGroupBox("Generated User Stories")
+        results_layout = QVBoxLayout(results_group)
+        
+        # 使用TreeWidget显示生成的User Stories
+        self.stories_tree = TreeWidget()
+        self.stories_tree.setHeaderLabels(["Title", "Type", "Priority"])
+        self.stories_tree.setColumnWidth(0, 400)
+        self.stories_tree.setColumnWidth(1, 100)
+        self.stories_tree.setColumnWidth(2, 100)
+        self.stories_tree.setMinimumHeight(200)  # 设置最小高度
+        self.stories_tree.setMaximumHeight(300)  # 设置最大高度
+        self.stories_tree.setStyleSheet("""
+            QTreeWidget::item { 
+                height: 35px; 
+                padding: 5px;
+                border-bottom: 1px solid #e0e0e0;
+            }
+            QTreeWidget::item:selected {
+                background-color: #e3f2fd;
+            }
+            QTreeWidget::item:hover {
+                background-color: #f5f5f5;
+            }
+        """)
+        self.stories_tree.itemClicked.connect(self.on_story_selected)
+        results_layout.addWidget(self.stories_tree)
+        
+        self.main_layout.addWidget(results_group)
+        
+        # 详细信息显示区域
+        details_group = QGroupBox("Story Details & Edit")
+        details_layout = QVBoxLayout(details_group)
+        details_layout.setSpacing(15)  # 增加垂直间距
+        
+        # 创建滚动区域
+        from PyQt6.QtWidgets import QScrollArea
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # scroll_area.setMinimumHeight(300)
+        # scroll_area.setMaximumHeight(800)
+        
+        # 创建滚动内容容器
+        scroll_content = QWidget()
+        scroll_layout = QVBoxLayout(scroll_content)
+        scroll_layout.setSpacing(20)  # 增加组件间距
+        scroll_layout.setContentsMargins(10, 10, 10, 10)
+        
+        # 编辑表单
+        edit_form = QFormLayout()
+        edit_form.setVerticalSpacing(15)  # 增加表单行间距
+        
+        # 标题编辑
+        self.title_edit = LineEdit()
+        self.title_edit.setPlaceholderText("Story title...")
+        self.title_edit.setMinimumHeight(35)
+        edit_form.addRow("Title:", self.title_edit)
+        
+        # 类型选择
+        self.type_combo = ComboBox()
+        self.type_combo.addItems(["Story", "Task", "Epic", "Bug"])
+        self.type_combo.setMinimumHeight(35)
+        edit_form.addRow("Type:", self.type_combo)
+        
+        # 优先级选择
+        self.priority_combo = ComboBox()
+        self.priority_combo.addItems(["Low", "Medium", "High", "Critical"])
+        self.priority_combo.setMinimumHeight(35)
+        edit_form.addRow("Priority:", self.priority_combo)
+        
+        scroll_layout.addLayout(edit_form)
+        
+        # 描述编辑
+        desc_label = BodyLabel("Description:")
+        desc_label.setStyleSheet("font-weight: bold; margin-top: 10px; margin-bottom: 5px;")
+        scroll_layout.addWidget(desc_label)
+        
+        from PyQt6.QtWidgets import QTextEdit
+        self.description_edit = QTextEdit()
+        self.description_edit.setPlaceholderText("Enter story description...")
+        self.description_edit.setMinimumHeight(100)
+        self.description_edit.setMaximumHeight(150)
+        self.description_edit.setStyleSheet("""
+            QTextEdit {
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 8px;
+                font-size: 14px;
+                line-height: 1;
+            }
+            QTextEdit:focus {
+                border-color: #0078d4;
+            }
+        """)
+        scroll_layout.addWidget(self.description_edit)
+        
+        # 验收标准编辑
+        criteria_label = BodyLabel("Acceptance Criteria:")
+        criteria_label.setStyleSheet("font-weight: bold; margin-top: 15px; margin-bottom: 5px;")
+        scroll_layout.addWidget(criteria_label)
+        
+        self.criteria_edit = QTextEdit()
+        self.criteria_edit.setPlaceholderText("Enter acceptance criteria (one per line)...")
+        self.criteria_edit.setMinimumHeight(100)
+        self.criteria_edit.setMaximumHeight(150)
+        self.criteria_edit.setStyleSheet("""
+            QTextEdit {
+                border: 2px solid #e0e0e0;
+                border-radius: 8px;
+                padding: 8px;
+                font-size: 14px;
+                line-height: 1;
+            }
+            QTextEdit:focus {
+                border-color: #0078d4;
+            }
+        """)
+        scroll_layout.addWidget(self.criteria_edit)
+        
+        # 编辑按钮
+        edit_buttons_layout = QHBoxLayout()
+        edit_buttons_layout.setSpacing(10)
+        edit_buttons_layout.setContentsMargins(0, 15, 0, 0)
+        
+        self.update_story_button = PushButton("Update Story")
+        self.update_story_button.setIcon(Icon(FluentIcon.EDIT))
+        self.update_story_button.clicked.connect(self.update_selected_story)
+        self.update_story_button.setEnabled(False)
+        self.update_story_button.setMinimumHeight(35)
+        edit_buttons_layout.addWidget(self.update_story_button)
+        
+        self.delete_story_button = PushButton("Delete Story")
+        self.delete_story_button.setIcon(Icon(FluentIcon.DELETE))
+        self.delete_story_button.clicked.connect(self.delete_selected_story)
+        self.delete_story_button.setEnabled(False)
+        self.delete_story_button.setMinimumHeight(35)
+        edit_buttons_layout.addWidget(self.delete_story_button)
+        
+        edit_buttons_layout.addStretch()
+        scroll_layout.addLayout(edit_buttons_layout)
+        
+        # 设置滚动内容
+        scroll_area.setWidget(scroll_content)
+        details_layout.addWidget(scroll_area)
+        
+        self.main_layout.addWidget(details_group)
+        
+        # 存储当前选中的故事
+        self.current_selected_item = None
+
+    def generate_user_stories(self):
+        """生成用户故事"""
+        user_input = self.user_input.text().strip()
+        if not user_input:
+            InfoBar.warning(
+                title='Warning',
+                content='Please enter a requirement description',
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=2000,
+                parent=self.window()
+            )
+            return
+        
+        # 显示生成中状态
+        self.generate_button.setEnabled(False)
+        
+        # 使用Dummy数据模拟大模型生成
+        stories = self.generate_dummy_stories(user_input)
+        
+        # 清空之前的结果
+        self.stories_tree.clear()
+        self.clear_edit_form()
+        
+        # 填充生成的故事
+        for story in stories:
+            item = QTreeWidgetItem(self.stories_tree)
+            item.setText(0, story["title"])
+            item.setText(1, story["type"])
+            item.setText(2, story["priority"])
+            
+            # 存储完整的故事数据
+            item.setData(0, Qt.ItemDataRole.UserRole, story)
+        
+        # 展开所有项目
+        self.stories_tree.expandAll()
+        
+        # 更新状态
+        self.generate_button.setEnabled(True)
+        self.create_all_button.setEnabled(True)
+        
+        InfoBar.success(
+            title='Success',
+            content=f'Generated {len(stories)} user stories',
+            orient=Qt.Orientation.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP_RIGHT,
+            duration=2000,
+            parent=self.window()
+        )
+
+    def generate_dummy_stories(self, user_input):
+        """生成虚拟的用户故事数据"""
+        import random
+        
+        # 基于用户输入生成相关的故事
+        base_stories = [
+            {
+                "title": f"As a user, I want to {user_input.lower()}",
+                "type": "Story",
+                "priority": "High",
+                "description": f"As a user, I want to {user_input.lower()} so that I can achieve my goals efficiently.\n\nThis feature will enable users to perform the requested functionality with ease and reliability.",
+                "acceptance_criteria": [
+                    f"Given that I am a logged-in user",
+                    f"When I attempt to {user_input.lower()}",
+                    f"Then the system should allow me to complete the action successfully",
+                    f"And I should receive appropriate feedback",
+                    f"And the action should be logged for audit purposes"
+                ],
+                "acceptance_criteria_en": [
+                    f"Given that I am a logged-in user",
+                    f"When I attempt to {user_input.lower()}",
+                    f"Then the system should allow me to complete the action successfully",
+                    f"And I should receive appropriate feedback",
+                    f"And the action should be logged for audit purposes"
+                ]
+            },
+            {
+                "title": f"As an admin, I want to manage {user_input.lower()} settings",
+                "type": "Story", 
+                "priority": "Medium",
+                "description": f"As an administrator, I need to be able to configure and manage settings related to {user_input.lower()}.\n\nThis will ensure proper governance and control over the feature.",
+                "acceptance_criteria": [
+                    f"Given that I am an administrator",
+                    f"When I access the admin panel",
+                    f"Then I should see options to configure {user_input.lower()} settings",
+                    f"And I should be able to save changes",
+                    f"And changes should take effect immediately"
+                ],
+                "acceptance_criteria_en": [
+                    f"Given that I am an administrator",
+                    f"When I access the admin panel",
+                    f"Then I should see options to configure {user_input.lower()} settings",
+                    f"And I should be able to save changes",
+                    f"And changes should take effect immediately"
+                ]
+            },
+            {
+                "title": f"As a developer, I want to implement {user_input.lower()} API",
+                "type": "Task",
+                "priority": "High", 
+                "description": f"Implement the backend API endpoints required to support {user_input.lower()} functionality.\n\nThis includes creating the necessary controllers, services, and data models.",
+                "acceptance_criteria": [
+                    f"Given the API specification",
+                    f"When I implement the {user_input.lower()} endpoints",
+                    f"Then all endpoints should return proper HTTP status codes",
+                    f"And response data should match the specification",
+                    f"And proper error handling should be implemented"
+                ],
+                "acceptance_criteria_en": [
+                    f"Given the API specification",
+                    f"When I implement the {user_input.lower()} endpoints",
+                    f"Then all endpoints should return proper HTTP status codes",
+                    f"And response data should match the specification",
+                    f"And proper error handling should be implemented"
+                ]
+            }
+        ]
+        
+        # 随机选择1-3个故事
+        num_stories = random.randint(1, 3)
+        selected_stories = random.sample(base_stories, min(num_stories, len(base_stories)))
+        
+        return selected_stories
+
+    def on_story_selected(self, item, column):
+        """当选择一个故事时加载到编辑表单"""
+        story_data = item.data(0, Qt.ItemDataRole.UserRole)
+        if story_data:
+            self.current_selected_item = item
+            
+            # 填充编辑表单
+            self.title_edit.setText(story_data['title'])
+            
+            # 设置类型
+            type_index = self.type_combo.findText(story_data['type'])
+            if type_index >= 0:
+                self.type_combo.setCurrentIndex(type_index)
+            
+            # 设置优先级
+            priority_index = self.priority_combo.findText(story_data['priority'])
+            if priority_index >= 0:
+                self.priority_combo.setCurrentIndex(priority_index)
+            
+            # 设置描述
+            self.description_edit.setPlainText(story_data['description'])
+            
+            # 设置验收标准
+            criteria_text = '\n'.join(story_data['acceptance_criteria'])
+            self.criteria_edit.setPlainText(criteria_text)
+            
+            # 启用编辑按钮
+            self.update_story_button.setEnabled(True)
+            self.delete_story_button.setEnabled(True)
+            self.create_selected_button.setEnabled(True)
+
+    def update_selected_story(self):
+        """更新选中的故事"""
+        if not self.current_selected_item:
+            return
+        
+        # 获取编辑后的数据
+        updated_story = {
+            'title': self.title_edit.text().strip(),
+            'type': self.type_combo.currentText(),
+            'priority': self.priority_combo.currentText(),
+            'description': self.description_edit.toPlainText().strip(),
+            'acceptance_criteria': [line.strip() for line in self.criteria_edit.toPlainText().split('\n') if line.strip()]
+        }
+        
+        # 验证数据
+        if not updated_story['title']:
+            InfoBar.warning(
+                title='Warning',
+                content='Title cannot be empty',
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=2000,
+                parent=self.window()
+            )
+            return
+        
+        # 更新树形控件显示
+        self.current_selected_item.setText(0, updated_story['title'])
+        self.current_selected_item.setText(1, updated_story['type'])
+        self.current_selected_item.setText(2, updated_story['priority'])
+        
+        # 更新存储的数据
+        self.current_selected_item.setData(0, Qt.ItemDataRole.UserRole, updated_story)
+        
+        InfoBar.success(
+            title='Success',
+            content='Story updated successfully',
+            orient=Qt.Orientation.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP_RIGHT,
+            duration=2000,
+            parent=self.window()
+        )
+
+    def delete_selected_story(self):
+        """删除选中的故事"""
+        if not self.current_selected_item:
+            return
+        
+        # 确认删除
+        from qfluentwidgets import MessageBox
+        w = MessageBox(
+            'Delete Story',
+            'Are you sure you want to delete this story?',
+            self.window()
+        )
+        if w.exec():
+            # 从树形控件中移除
+            root = self.stories_tree.invisibleRootItem()
+            root.removeChild(self.current_selected_item)
+            
+            # 清空编辑表单
+            self.clear_edit_form()
+            self.current_selected_item = None
+            
+            # 更新按钮状态
+            self.update_story_button.setEnabled(False)
+            self.delete_story_button.setEnabled(False)
+            self.create_selected_button.setEnabled(False)
+            
+            # 检查是否还有故事
+            if self.stories_tree.topLevelItemCount() == 0:
+                self.create_all_button.setEnabled(False)
+            
+            InfoBar.success(
+                title='Success',
+                content='Story deleted successfully',
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=2000,
+                parent=self.window()
+            )
+
+    def clear_edit_form(self):
+        """清空编辑表单"""
+        self.title_edit.clear()
+        self.type_combo.setCurrentIndex(0)
+        self.priority_combo.setCurrentIndex(1)  # Medium
+        self.description_edit.clear()
+        self.criteria_edit.clear()
+        
+        # 重置按钮状态
+        self.update_story_button.setEnabled(False)
+        self.delete_story_button.setEnabled(False)
+        self.create_selected_button.setEnabled(False)
+        self.current_selected_item = None
+
+    def create_selected_story_in_jira(self):
+        """在Jira中创建选中的故事"""
+        if not self.current_selected_item:
+            return
+        
+        # 从环境变量读取项目键
+        project_key = os.getenv('JIRA_PROJECT_KEY', '').strip()
+        if not project_key:
+            InfoBar.warning(
+                title='Warning',
+                content='JIRA_PROJECT_KEY environment variable not set',
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=2000,
+                parent=self.window()
+            )
+            return
+        
+        story_data = self.current_selected_item.data(0, Qt.ItemDataRole.UserRole)
+        self.create_story_in_jira(story_data, project_key)
+
+    def create_all_stories_in_jira(self):
+        """在Jira中创建所有故事"""
+        # 从环境变量读取项目键
+        project_key = os.getenv('JIRA_PROJECT_KEY', '').strip()
+        if not project_key:
+            InfoBar.warning(
+                title='Warning',
+                content='JIRA_PROJECT_KEY environment variable not set',
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=2000,
+                parent=self.window()
+            )
+            return
+        
+        # 获取所有故事
+        stories = []
+        for i in range(self.stories_tree.topLevelItemCount()):
+            item = self.stories_tree.topLevelItem(i)
+            story_data = item.data(0, Qt.ItemDataRole.UserRole)
+            if story_data:
+                stories.append(story_data)
+        
+        if not stories:
+            InfoBar.warning(
+                title='Warning',
+                content='No stories to create',
+                orient=Qt.Orientation.Horizontal,
+                isClosable=True,
+                position=InfoBarPosition.TOP_RIGHT,
+                duration=2000,
+                parent=self.window()
+            )
+            return
+        
+        # 创建所有故事
+        success_count = 0
+        for story in stories:
+            if self.create_story_in_jira(story, project_key, show_individual_notification=False):
+                success_count += 1
+        
+        InfoBar.success(
+            title='Success',
+            content=f'Created {success_count}/{len(stories)} stories in Jira',
+            orient=Qt.Orientation.Horizontal,
+            isClosable=True,
+            position=InfoBarPosition.TOP_RIGHT,
+            duration=3000,
+            parent=self.window()
+        )
+
+    def create_story_in_jira(self, story_data, project_key, show_individual_notification=True):
+        """在Jira中创建单个故事 (使用Dummy数据模拟)"""
+        try:
+            # 模拟API调用延迟
+            import time
+            time.sleep(0.5)
+            
+            # 模拟Jira API调用
+            # 这里应该是真实的Jira API调用
+            jira_issue = {
+                'key': f'{project_key}-{hash(story_data["title"]) % 1000:03d}',
+                'summary': story_data['title'],
+                'description': story_data['description'],
+                'issuetype': story_data['type'],
+                'priority': story_data['priority'],
+                'acceptance_criteria': story_data['acceptance_criteria']
+            }
+            
+            # 模拟成功创建
+            if show_individual_notification:
+                InfoBar.success(
+                    title='Jira Story Created',
+                    content=f'Created: {jira_issue["key"]} - {story_data["title"][:50]}...',
+                    orient=Qt.Orientation.Horizontal,
+                    isClosable=True,
+                    position=InfoBarPosition.TOP_RIGHT,
+                    duration=3000,
+                    parent=self.window()
+                )
+            
+            return True
+            
+        except Exception as e:
+            if show_individual_notification:
+                InfoBar.error(
+                    title='Error',
+                    content=f'Failed to create story in Jira: {str(e)}',
+                    orient=Qt.Orientation.Horizontal,
+                    isClosable=True,
+                    position=InfoBarPosition.TOP_RIGHT,
+                    duration=3000,
+                    parent=self.window()
+                )
+            return False
+
+
 class TodoApp(FluentWindow):
     def __init__(self):
         super().__init__()
         self.todo_interface = TodoInterface()
+        self.button_interface = JiraInterface()
         self.init_ui()
         self.setup_window()
 
     def init_ui(self):
         # Set object name before adding the interface
         self.todo_interface.setObjectName("todoInterface")
+        self.button_interface.setObjectName("JiraInterface")
+        
         # Add the todo interface to the FluentWindow
         self.addSubInterface(self.todo_interface, Icon(FluentIcon.HOME), "Todo List", NavigationItemPosition.TOP)
+        
+        # Add the button interface to the FluentWindow
+        self.addSubInterface(self.button_interface, Icon(FluentIcon.ROBOT), "Story Generator", NavigationItemPosition.TOP)
 
     def setup_window(self):
         """Setup window properties - center and maximize"""
